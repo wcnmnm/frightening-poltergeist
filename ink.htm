@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+  <title>安全界面 放心访问</title>
+  <style>
+    /* 全局基础：浅蓝质感基调不变 */
+    * {margin:0;padding:0;box-sizing:border-box;font-family:'PingFang SC',sans-serif;}
+    body {
+      background: linear-gradient(180deg, #f0f8ff 0%, #e6f7ff 100%);
+      background-image: 
+        linear-gradient(180deg, #f0f8ff 0%, #e6f7ff 100%),
+        repeating-linear-gradient(45deg, rgba(173,216,255,0.05) 0px, rgba(173,216,255,0.05) 20px, transparent 20px, transparent 40px);
+      min-height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 加载动画：居中显示，层级高于技术支持卡片 */
+    .loading-wrap {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      display: none; /* 跳转时显示 */
+      z-index: 1000; /* 确保加载动画在最上层 */
+    }
+    .loader {
+      width: 56px;
+      height: 56px;
+      position: relative;
+    }
+    .loader-inner {
+      width: 100%;
+      height: 100%;
+      border: 4px solid rgba(66,153,225,0.1);
+      border-top: 4px solid #4299e1;
+      border-radius: 50%;
+      animation: spin 1.2s linear infinite;
+    }
+    .loader-glow {
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      width: 60px;
+      height: 60px;
+      border: 2px solid rgba(66,153,225,0.2);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .loading-text {
+      font-size: 14px;
+      color: #4a5568;
+      font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.05); } }
+
+    /* 技术支持：调整为页面居中显示，保留质感样式 */
+    .support-card {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%); /* 完全居中 */
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(8px);
+      padding: 12px 24px;
+      border-radius: 24px;
+      box-shadow: 0 4px 12px rgba(173,216,255,0.2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 999; /* 层级低于加载动画，避免遮挡 */
+      transition: opacity 0.3s ease;
+    }
+    .support-icon {
+      width: 20px;
+      height: 20px;
+      fill: #4299e1;
+    }
+    .support-text {
+      font-size: 15px;
+      color: #374151;
+      white-space: nowrap;
+    }
+
+    /* 目标页面iframe：淡入过渡不变 */
+    .target-iframe {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      z-index: 1;
+    }
+    .target-iframe.loaded { opacity: 1; }
+
+    /* 跳转时隐藏技术支持卡片的类 */
+    .support-hide { opacity: 0; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <!-- 加载动画：居中显示，跳转时覆盖技术支持卡片 -->
+  <div class="loading-wrap" id="loadingWrap">
+    <div class="loader">
+      <div class="loader-inner"></div>
+      <div class="loader-glow"></div>
+    </div>
+    <div class="loading-text">安全验证中，即将跳转...</div>
+  </div>
+
+  <!-- 技术支持：页面居中显示 -->
+  <div class="support-card" id="supportCard">
+    <svg class="support-icon" viewBox="0 0 24 24">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+    </svg>
+    <div class="support-text">冰冰：TG: BBhxzc886 接口请勿调用</div>
+  </div>
+
+  <!-- 目标页面iframe：加载后显示 -->
+  <iframe class="target-iframe" id="targetIframe"></iframe>
+
+  <script>
+    (function() {
+      // 元素获取
+      const loadingWrap = document.getElementById('loadingWrap');
+      const supportCard = document.getElementById('supportCard');
+      const targetIframe = document.getElementById('targetIframe');
+
+      // 跳转开始：显示加载，隐藏居中的技术支持卡片
+      function startRedirect() {
+        loadingWrap.style.display = 'flex';
+        supportCard.classList.add('support-hide');
+      }
+
+      // 跳转完成：隐藏加载，显示iframe
+      function finishRedirect() {
+        loadingWrap.style.display = 'none';
+        targetIframe.classList.add('loaded');
+      }
+
+      // 核心逻辑：保留原URL解码+防F12，仅调整位置
+      function processRedirect() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const encodedUrl = urlParams.get('c');
+
+        if (!encodedUrl) return;
+
+        try {
+          const decodedUrl = atob(encodedUrl);
+          if (decodedUrl.startsWith('http')) {
+            startRedirect();
+            targetIframe.src = decodedUrl;
+            targetIframe.onload = finishRedirect;
+          }
+        } catch (e) {
+          console.error('URL解码失败:', e);
+          loadingWrap.style.display = 'none';
+        }
+      }
+
+      // 禁止F12调试（功能不变）
+      document.addEventListener('keydown', e => {
+        if ([123, 73, 74, 85].includes(e.keyCode) && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+        }
+      });
+
+      processRedirect();
+    })();
+  </script>
+</body>
+</html>
